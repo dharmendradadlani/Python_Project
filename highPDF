@@ -1,0 +1,70 @@
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import inch
+from PIL import Image as PILImage
+import os
+
+# Output PDF path
+pdf_path = "C://Users//Dharmendra Dadlani//Desktop//Tiff file//Sample_HighRes_Contract.pdf"
+
+# Create document
+doc = SimpleDocTemplate(pdf_path, pagesize=A4)
+styles = getSampleStyleSheet()
+flowables = []
+
+# Add sample contract text
+contract_text = """
+SAMPLE CONTRACT AGREEMENT
+
+AD AGENCY SERVICES AGREEMENT
+This LOCAL AD AGENCY SERVICES AGREEMENT is made as of June 1, 2015 ("Effective Date") between Aceline USA, Inc. with offices at 5 Oak Drive, Charleston, SC 80912, United States (“ACELINE”), and GHI, a New York Corporation with offices at 8 Poplar Road, New York, New York, USA (“Agency"), (each a “Party" and collectively the “Parties").
+WHEREAS, ACELINE desires to engage Agency to perform certain services under the terms and conditions of this Local Ad Agency Services Agreement, the Terms and Conditions set forth in Appendix A attached hereto (“Terms and Conditions") and the other Appendices, Schedules and Exhibits hereto or thereto (collectively, the “Agreement”) and Agency desires to accept such engagement, it being expressly agreed and understood that such engagement is nonexclusive and that nothing in this Agreement, the Appendices, Schedules and Exhibits attached hereto will in any way restrict ACELINE’s right to engage others to render the same or similar services;
+In consideration of the mutual promises made in this Agreement, the Parties hereby agree as follows:
+1.	DEFINED TERMS.
+Capitalized terms used but not otherwise defined herein have the meanings ascribed to them in the Terms and Conditions.
+2.	TERM.
+This Agreement shall remain in effect for a period of 19 months from the Effective Date, unless earlier terminated in accordance with Section 15 of the Terms and Conditions (“Term").
+In the event that both Parties wish to extend the Term, the Parties agree to enter into good faith negotiations at least 90 days prior to the end of the Term (i.e., September 9, 2017) with respect to the terms and conditions of such extension; provided, however, neither Party shall be obligated to enter into an extension and, if either Party wishes to terminate this Agreement prior to such 90 day period (i.e., prior to December 31, 2016), such termination shall be subject to the 90 day notice period set forth in Section 15.1 of the Terms and Conditions. If the Parties have not entered into a written extension (which may take the form of an amendment or an amendment and restatement of this Agreement or other mutually agreed upon form) by December 31, 2016, but agree in writing to continue negotiation of an extension after such date, the terms and conditions of this Agreement including, but not limited to, any fees and expenses payable hereunder, including during the above-referenced termination notice period, shall continue to apply during the agreed upon negotiation period. If and when a written extension is entered into by the Parties, any fees and expenses agreed upon in such extension shall apply retroactively as of January 1, 2017, and each Party agrees at the time of the execution of such extension to make payment to the other Party necessary to adjust for such retroactive reconciliation.
+18. The term of this Agreement shall be one (1) year ? beginning with the Effective Date, unless terminated 
+earlier by eit party's sole discretion upon thirty (30) days ? written notice to the other party; provided that the provisions herein conce disclosure,
+protection and use of Confidential Information shall survive the termination or expiration of this Agreement ano of 
+paragraph 19 shall survive a termination of this Agreement until the first anniversary of the Effective date
+3.	BRAND ASSIGNMENT.
+This Agreement covers marketing communications for those ACELINE’s brands as ACELINE may, in its sole and exclusive discretion, assign to Agency from time to time and which Agency agrees to accept (collectively, the “Brands"). ACELINE may, from time to time, remove or suspend a Brand from Agency on not less than 90 days’ prior written notice to Agency unless the Parties agree otherwise in writing. Appendix B hereto lists such assignments to Agency in effect on the Effective Date. ACELINE shall continue to include in its calculation of fees payable to Agency such removed or suspended Brands during the notice period.
+4.	PROVISION OF SERVICES.
+Agency will perform the Services set forth in Section 2 of the Terms and Conditions, Appendix C hereto and those additional Services, if any, set for the in the applicable SOW.
+5.	COMPENSATION.
+5.1.	ACELINE shall compensate Agency as set forth in Appendix D hereto as the same may be amended from time to time in accordance with Section 27 of the Terms and Conditions.
+5.2.	Agency agrees that ACELINE shall not be responsible for any additional fees or costs that are not pre-approved by ACELINE in writing.
+5.3.	Agency shall be solely responsible for its own income, profit, and other taxes and all employment-related costs and obligations to Agency Personnel employed by Agency incurred in connection with the Services.
+5.4.	Payment terms shall be as set forth in the Terms and Conditions.
+6.	CURRENCY.
+ACELINE will pay Agency invoices in USD.
+7.	GOVERNING LAW AND JURISDICTION.
+This Agreement shall be	governed exclusively by, and enforced in accordance with, the laws of New York. Each Party hereby (a) submits to the exclusive jurisdiction of courts of or in such jurisdiction over any disputes under this Agreement, (b) waives any objection to such jurisdiction, and (c) if such rights exist, waives its right to a jury trial in any dispute arising under this Agreement.
+
+8.	DISPUTE RESOLUTION.
+In the event of any dispute between the Parties arising hereunder, each Party will use commercially reasonable efforts to amicably resolve such dispute, which shall include, as deemed necessary by the Parties, escalation of the dispute to each Party’s parent company, prior to seeking redress through formal legal action, provided that actions by either Party seeking equitable or declaratory relief may be brought in court pursuant to Section 8.
+-- END OF SAMPLE CONTRACT --
+"""
+for line in contract_text.split("\n"):
+    flowables.append(Paragraph(line, styles["Normal"]))
+    flowables.append(Spacer(1, 12))
+
+# Create a large white filler image to inflate file size
+img_path = "filler_large.jpg"
+large_img = PILImage.new("RGB", (8000, 8000), color="white")
+large_img.save(img_path, "JPEG", quality=95)
+
+# Keep adding filler images until file size crosses 10 MB
+while True:
+    flowables.append(Image(img_path, width=6*inch, height=6*inch))
+    doc.build(flowables)
+    size = os.path.getsize(pdf_path) / (1024 * 1024)  # in MB
+    if size >= 10:
+        break
+
+print(f"✅ PDF generated: {pdf_path}, size: {size:.2f} MB")
+
+

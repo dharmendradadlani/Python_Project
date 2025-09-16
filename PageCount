@@ -1,0 +1,79 @@
+import os
+from PyPDF2 import PdfReader
+from docx import Document
+
+# ✅ Fixed folder path
+folder_path = r"C:\Users\Dharmendra Dadlani\Desktop\LLM"
+output_file = os.path.join(folder_path, "PageCounts.txt")
+
+def get_pdf_page_count(file_path):
+    """Return number of pages in a PDF file."""
+    try:
+        reader = PdfReader(file_path)
+        return len(reader.pages)
+    except Exception as e:
+        print(f"Error reading PDF {file_path}: {e}")
+        return None
+
+def get_docx_page_count(file_path):
+    """Estimate number of pages in a DOCX file (approx)."""
+    try:
+        doc = Document(file_path)
+        word_count = sum(len(p.text.split()) for p in doc.paragraphs)
+        approx_pages = max(1, round(word_count / 300))  # rough estimate
+        return approx_pages
+    except Exception as e:
+        print(f"Error reading DOCX {file_path}: {e}")
+        return None
+
+def count_pages_in_folder(folder_path):
+    results = []
+    total_pages = 0
+
+    for root, _, files in os.walk(folder_path):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if file.lower().endswith(".pdf"):
+                pages = get_pdf_page_count(file_path)
+                if pages is not None:
+                    results.append((file, pages, "PDF"))
+                    total_pages += pages
+            elif file.lower().endswith(".docx"):
+                pages = get_docx_page_count(file_path)
+                if pages is not None:
+                    results.append((file, pages, "DOCX"))
+                    total_pages += pages
+
+    return results, total_pages
+
+
+if __name__ == "__main__":
+    if not os.path.exists(folder_path):
+        print("❌ Folder does not exist.")
+    else:
+        results, total_pages = count_pages_in_folder(folder_path)
+
+        # Format as table
+        header = f"{'File Name':<40} {'Type':<6} {'Pages':>6}"
+        separator = "-" * len(header)
+
+        print("\n📄 File Page Counts:")
+        print(header)
+        print(separator)
+        for file, pages, ftype in results:
+            print(f"{file:<40} {ftype:<6} {pages:>6}")
+
+        print(separator)
+        print(f"{'TOTAL':<40} {'':<6} {total_pages:>6}")
+
+        # Save same table into text file
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write("📄 File Page Counts:\n")
+            f.write(header + "\n")
+            f.write(separator + "\n")
+            for file, pages, ftype in results:
+                f.write(f"{file:<40} {ftype:<6} {pages:>6}\n")
+            f.write(separator + "\n")
+            f.write(f"{'TOTAL':<40} {'':<6} {total_pages:>6}\n")
+
+        print(f"\n📝 Results saved to: {output_file}")

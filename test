@@ -1,0 +1,131 @@
+import requests
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+
+# ========= CONFIG =========
+AUTH_URL = "https://annotator-api.catylex.com/api/v1/authentication/token"
+CONFIDENCE_URL = "https://annotator-api.catylex.com/api/v1/dashboards/confidence"
+
+ACCESS_KEY = "683c43416c47a1b022518907"
+SECRET_KEY = "32bT2vBsnC1mYLdFOhz8Vn71FEhfuu0V"
+CSRF_TOKEN = "XlGcjBzw6kzly9oHYA0ItVQyEMX4XufIpEugkqhKnXNKHgME9plUYdKz7T7AL7wb"
+VIEW_ID = "66ab463414cb484ffe2e8154"
+
+WORKSPACE_A = "68b7d730b281b1fc3916b522"
+WORKSPACE_B = "68a95d158cfcd6ea4fa19f05"
+
+EXPORT_TO_EXCEL = True
+TIMESTAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
+EXPORT_PATH = Path(f"confidence_comparison_{TIMESTAMP}.xlsx")
+# =========================
+
+def get_bearer_token() -> str:
+    payload = {"access_key": ACCESS_KEY, "secret_key": SECRET_KEY}
+    headers = {"accept": "*/*", "Content-Type": "application/json", "X-CSRFTOKEN": CSRF_TOKEN}
+
+    resp = requests.post(AUTH_URL, headers=headers, json=payload, timeout=30)
+    print(f"📡 Token Status: {resp.status_code}")
+    resp.raise_for_status()
+    data = resp.json()
+    token = data.get("access_token")
+    if not token:
+        raise RuntimeError("No 'access_token' in token response.")
+    return token
+
+def fetch_confidence(token: str, workspace_id: str) -> dict:
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "accept": "application/json",
+        "X-CSRFTOKEN": CSRF_TOKEN,
+    }
+    body = {"view": VIEW_ID, "workspaces": [workspace_id]}
+
+    resp = requests.post(CONFIDENCE_URL, headers=headers, json=body, timeout=60)
+    print(f"📡 Confidence API for workspace {workspace_id} → {resp.status_code}")
+    resp.raise_for_status()
+    return resp.json()
+
+def to_df_formatted(payload: dict) -> pd.DataFrame:
+    """
+    Convert API dashboard_data to DataFrame with desired columns:
+    Concept Name | High Conf | Medium High Conf | Medium Conf | Probably Missing | Confirmed Missing
+    """
+    items = payload.get("dashboard_data", [])
+    rows = []
+    for it in items:
+        rows.append(
+            {
+                "Concept Name": it.get("cname"),
+                "High Conf": it.get("high_conf", 0),
+                "Medium High Conf": it.get("medium_high", 0),
+                "Medium Conf": it.get("medium", 0),
+                "Probably Missing": it.get("probably_missing", 0),
+                "Confirmed Missing": it.get("confirmed_missing", 0),
+            }
+        )
+    df = pd.DataFrame(rows)
+    return df
+
+def side_by_side(df_a: pd.DataFrame, df_b: pd.DataFrame, label_a: str, label_b: str) -> pd.DataFrame:
+    """
+    Merge two workspace DataFrames side by side with delta columns for numeric fields
+    """
+    merge_cols = ["Concept Name", "High Conf", "Medium High Conf", "Medium Conf", "Probably Missing", "Confirmed Missing"]
+
+    a = df_a[merge_cols].add_suffix(f" | {label_a}")
+    b = df_b[merge_cols].add_suffix(f" | {label_b}")
+
+    merged = a.join(b, how="outer")
+
+    # Keep single Concept Name column
+    merged["Concept Name"] = merged[f"Concept Name | {label_a}"].fillna(merged[f"Concept Name | {label_b}"])
+    merged = merged.drop(columns=[f"Concept Name | {label_a}", f"Concept Name | {label_b}"], errors="ignore")
+
+    # Compute delta columns for numeric fields
+    numeric_cols = ["High Conf", "Medium High Conf", "Medium Conf", "Probably Missing", "Confirmed Missing"]
+    for col in numeric_cols:
+        col_a = f"{col} | {label_a}"
+        col_b = f"{col} | {label_b}"
+        if col_a in merged.columns and col_b in merged.columns:
+            merged[f"{col} Δ ({label_b}-{label_a})"] = merged[col_b].fillna(0) - merged[col_a].fillna(0)
+
+    # Order columns
+    ordered = ["Concept Name"]
+    for col in numeric_cols:
+        ordered += [f"{col} | {label_a}", f"{col} | {label_b}", f"{col} Δ ({label_b}-{label_a})"]
+    ordered += [c for c in merged.columns if c not in ordered]
+
+    return merged[ordered].sort_values("Concept Name")
+
+def main():
+    token = get_bearer_token()
+    print(f"✅ Got Bearer Token: {token[:50]}...\n")
+
+    data_a = fetch_confidence(token, WORKSPACE_A)
+    data_b = fetch_confidence(token, WORKSPACE_B)
+
+    df_a = to_df_formatted(data_a)
+    df_b = to_df_formatted(data_b)
+
+    # Short workspace labels
+    short_a = WORKSPACE_A[-6:]
+    short_b = WORKSPACE_B[-6:]
+
+    comparison = side_by_side(df_a, df_b, short_a, short_b)
+
+    # Display top 60 rows
+    with pd.option_context("display.max_rows", 60, "display.max_columns", 200, "display.width", 200):
+        print(comparison.to_string())
+
+    # Export to Excel
+    if EXPORT_TO_EXCEL:
+        with pd.ExcelWriter(EXPORT_PATH, engine="xlsxwriter") as xw:
+            df_a.to_excel(xw, index=False, sheet_name=f"raw_{short_a}")
+            df_b.to_excel(xw, index=False, sheet_name=f"raw_{short_b}")
+            comparison.to_excel(xw, index=False, sheet_name="comparison")
+        print(f"\n✅ Excel written to: {EXPORT_PATH.resolve()}")
+
+if __name__ == "__main__":
+    main()
