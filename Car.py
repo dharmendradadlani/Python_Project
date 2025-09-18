@@ -6,6 +6,7 @@ class Car:
     def display_info(self):
         print(f'{self.brand}, {self.model}, {self.wheels}')
         print("This is to test git hub changes")
+        print("This is to test git hub from VS Code Program")
 
 my_car= Car("Toyota","Corolla")
 my_car.display_info()
